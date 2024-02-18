@@ -6,8 +6,9 @@ import kornia
 import numpy as np
 import torch
 import torch.nn as nn
-from mmseg.models.utils.dacs_normalization import NormNet
+# from mmseg.models.utils.dacs_normalization import NormNet
 from torch import nn, optim
+from sklearn.linear_model import LinearRegression
 
 class ClasswiseMultAugmenter:
     def __init__(self, n_classes, norm_type: str, suppress_bg: bool=True, device: str="cuda:0"):
@@ -15,58 +16,148 @@ class ClasswiseMultAugmenter:
         self.device = device
         self.source_mean = -torch.ones(n_classes, 1)
         self.target_mean = -torch.ones(n_classes, 1)
-        self.coef = torch.zeros(n_classes, 3)
+        self.delta = torch.full((n_classes,), float('nan'))
+        # torch.zeros(n_classes)
 
         self.suppress_bg = suppress_bg
+
+        # self.learning_rate = 6e-05
+        self.learning_rate = 0.01
+        self.normalization_net = nn.Conv2d(1, 1, kernel_size=1, bias=True).to(device)
+        self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(self.normalization_net.parameters(), lr=self.learning_rate, weight_decay=0)
+
+    def optimization_step(self, img_original, img_segm_hist, gt_semantic_seg):               
+        self.optimizer.zero_grad()
+        # print(img_original.device, img_segm_hist.device, gt_semantic_seg.device)
+        # print(next(self.normalization_net.parameters()).device)
+        # quit()
+
+        img_polished = self.normalization_net(img_original[:, 0, :, :].unsqueeze(1)) 
         
-    def update(self, source, target, mask_src, mask_tgt, weight_tgt, param):
+        if self.suppress_bg:
+             ## automatically detect background value
+            # background_val = img_original[0, 0, 0, 0].item()
+            # foreground_mask = img_original[:, 0, :, :].unsqueeze(1) > 0
+            # background_mask = img_original[:, 0, :, :].unsqueeze(1) == background_val
+            
+            foreground_mask = gt_semantic_seg > 0
+            background_mask = gt_semantic_seg == 0
+
+            loss = self.criterion(img_polished[foreground_mask], img_segm_hist[foreground_mask].to(img_polished.device))
+        else:
+            loss = self.criterion(img_polished, img_segm_hist.to(img_polished.device))       
+
+        loss.backward()
+        self.optimizer.step()
+
+        min_hist, max_hist = img_segm_hist[foreground_mask].min().item(), img_segm_hist[foreground_mask].max().item()
+
+        # img = img_polished.detach()
+        del img_polished
+        with torch.no_grad():
+            img = self.normalization_net(img_original[:, 0, :, :].unsqueeze(1)).detach()
+            
+        # img[foreground_mask] += max_hist - img[foreground_mask].max().item()
+
+        if self.suppress_bg:
+            img[background_mask] = img_segm_hist[background_mask]
+            # img[background_mask] = img_original[:, 0, :, :].unsqueeze(1)[background_mask].mean().item()
+
+        img = img.repeat(1, 3, 1, 1)
+
+        return img, loss.item()
+        
+    def update(self, source, target, mask_src, mask_tgt, weight_tgt, param, alpha=0.95):
         mean, std = param["mean"], param["std"]
         denorm_(source, mean, std)
         denorm_(target, mean, std)
 
         c = 0
-        for i in range(self.n_classes):
+        for i in range(self.n_classes):            
             source_mean = source[:, c, :, :][mask_src.squeeze(1) == i]
             target_mean = target[:, c, :, :][(mask_tgt.squeeze(1) == i) & (weight_tgt.squeeze(1) > 0)]
 
             if (source_mean.shape[0] != 0):
-                self.source_mean[i, c] = source_mean.mean().item()
+                if self.source_mean[i, c] == -1:
+                    self.source_mean[i, c] = source_mean.mean().item()
+                else:
+                    self.source_mean[i, c] = alpha*source_mean.mean().item() + (1-alpha)*self.source_mean[i, c]
 
             if (target_mean.shape[0] != 0):
-                self.target_mean[i, c] = target_mean.mean().item()
+                if self.target_mean[i, c] == -1:
+                    self.target_mean[i, c] = target_mean.mean().item()
+                else:
+                    self.target_mean[i, c] = alpha*target_mean.mean().item() + (1-alpha)*self.target_mean[i, c]
 
             if (self.source_mean[i, c] != -1) and (self.target_mean[i, c] != -1):
-                self.coef[i, c] = self.target_mean[i, c] - self.source_mean[i, c]
+                self.delta[i] = self.target_mean[i, c] - self.source_mean[i, c]
                     
         renorm_(source, mean, std)
         renorm_(target, mean, std)
 
     def color_mix(self, data, mask, mean, std):
-        data_ = data.clone()
+        has_nan = torch.isnan(self.delta[1:]).all()
 
-        denorm_(data_, mean, std)
+        if has_nan:            
+            return None
+        else:
+            data_before_ = data.clone()
+            data_ = data.clone()
 
-        for i in range(self.n_classes):
-            for c in range(3):
-                old_min = data_[:, c, :, :][mask.squeeze(1) != 0].min()
+            denorm_(data_, mean, std)
+            denorm_(data_before_, mean, std)
+
+            for cl in range(self.n_classes):
+                for c in range(3):
+                    # old_min = data_[:, c, :, :][mask.squeeze(1) != 0].min()
+                    if not torch.isnan(self.delta[cl]):
+                        data_[:, c, :, :][mask.squeeze(1) == cl] += self.delta[cl]
+
+                    # new_min = data_[:, c, :, :][mask.squeeze(1) != 0].min()
+
+                    # data_[:, c, :, :][mask.squeeze(1) != 0] += old_min - new_min
                 
-                data_[:, c, :, :][mask.squeeze(1) == i] += self.coef[i, 0]
+            for i in range(data_.shape[0]):
+                # min_val = data_.min()
+                # data_[i] -= min_val
+                # max_val = data_[i].max()
+                # if max_val != 0:
+                #     data_[i] /= max_val
 
-                new_min = data_[:, c, :, :][mask.squeeze(1) != 0].min()
+                lin_pred = self._linear_match_cost(data_before_[i, 0].cpu().numpy(), data_[i, 0].cpu().numpy(), mask[i].cpu().numpy())
+                for c in range(3):
+                    data_[i, c] = lin_pred
 
-                data_[:, c, :, :][mask.squeeze(1) != 0] += old_min - new_min
-            
-        min_val = data_.min()
-        data_ -= min_val
-        max_val = data_.max()
-        if max_val != 0:
-            data_ /= max_val
+                # min_val = data_.min()
+                # data_[i] -= min_val
+                # max_val = data_[i].max()
+                # if max_val != 0:
+                #     data_[i] /= max_val
 
-        renorm_(data_, mean, std)
+            renorm_(data_, mean, std)
 
-        return data_[:, 0, :, :].unsqueeze(1)
+            return data_[:, 0, :, :].unsqueeze(1)
 
+    def _linear_match_cost(self, source, template, mask):
+        h, w = source.shape
+        source_vec = source.reshape(-1)
+        template_vec = template.reshape(-1)
+        mask_vec = mask.reshape(-1)
+        # DecisionTreeRegressor(max_depth=10)
+        # MLPRegressor(hidden_layer_sizes=(256,256,256))
+        reg = LinearRegression().fit(source_vec[mask_vec != 0].reshape(-1, 1), template_vec[mask_vec != 0])
+        source_new = np.zeros(h*w)
+        source_new[mask_vec != 0] = reg.predict(source_vec[mask_vec != 0].reshape(-1, 1))
+        source_new[mask_vec == 0] = template_vec[mask_vec == 0]
 
+        # print('source', source_vec.min(), source_vec.max())
+        # print('template', template_vec.min(), template_vec.max())
+        # print('source_new', source_new.min(), source_new.max())
+        source_new = torch.Tensor(source_new.reshape(h, w)).to(self.device)
+        # source_new.clamp(0, 1)
+        return source_new
+    
 def strong_transform(param, data=None, target=None):
     assert (data is not None) or (target is not None)
 

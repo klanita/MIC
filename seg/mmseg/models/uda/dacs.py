@@ -347,55 +347,66 @@ class DACS(UDADecorator):
         img_segm_hist = self.contrast_flip.color_mix(
             img_original, gt_semantic_seg, means, stds
         )
-
-        # update normalization net
-        norm_net = self.get_model().normalization_net
-        img_polished = norm_net(img_original[:, 0, :, :].unsqueeze(1))
-
-        if self.color_mix["suppress_bg"]:
-
-            foreground_mask = gt_semantic_seg > 0
-            background_mask = gt_semantic_seg == 0
-
-            norm_loss = self.criterion(
-                img_polished[foreground_mask], img_segm_hist[foreground_mask]
-            )
+        
+        if img_segm_hist is None:
+            return img_original
         else:
-            norm_loss = self.criterion(img_polished, img_segm_hist)
-
-        norm_loss.backward(retain_graph=False)
-
-        if norm_loss.item() < self.color_mix["burninthresh"]:
-            self.color_mix_flag = True
-        # self.color_mix_flag = norm_loss.item() < self.color_mix["burninthresh"]
-
-        if (
-            (self.local_iter >= self.color_mix["burnin"])
-            and (self.color_mix["burnin"] != -1)
-        ) or ((self.color_mix["burnin"] == -1) and self.color_mix_flag):
-            img = img_polished.detach().clone()            
-
-            if self.color_mix["suppress_bg"]:
-                img[background_mask] = img_segm_hist[background_mask]
-
-            img = img.repeat(1, 3, 1, 1)
-        elif random.uniform(0, 1) < 0.5:
             img = img_segm_hist.repeat(1, 3, 1, 1)
-        else:
-            img = img_original
+    
+        # img, norm_loss = self.contrast_flip.optimization_step(img_original, img_segm_hist, gt_semantic_seg)
 
-        del img_polished
+        # # update normalization net
+        # norm_net = self.get_model().normalization_net
+        # img_polished = norm_net(img_original[:, 0, :, :].unsqueeze(1))
 
-        if self.local_iter % 200 == 0:
+        # if self.color_mix["suppress_bg"]:
+
+        #     foreground_mask = gt_semantic_seg > 0
+        #     background_mask = gt_semantic_seg == 0
+
+        #     norm_loss = self.criterion(
+        #         img_polished[foreground_mask], img_segm_hist[foreground_mask]
+        #     )
+        # else:
+        #     norm_loss = self.criterion(img_polished, img_segm_hist)
+
+        # norm_loss.backward(retain_graph=False)
+
+        # if norm_loss.item() < self.color_mix["burninthresh"]:
+        #     self.color_mix_flag = True
+        # # self.color_mix_flag = norm_loss.item() < self.color_mix["burninthresh"]
+
+        # if (
+        #     (self.local_iter >= self.color_mix["burnin"])
+        #     and (self.color_mix["burnin"] != -1)
+        # ) or ((self.color_mix["burnin"] == -1) and self.color_mix_flag):
+        #     img = img_polished.detach().clone()            
+
+        #     if self.color_mix["suppress_bg"]:
+        #         img[background_mask] = img_segm_hist[background_mask]
+
+        #     img = img.repeat(1, 3, 1, 1)
+        # elif random.uniform(0, 1) < 0.5:
+        #     img = img_segm_hist.repeat(1, 3, 1, 1)
+        # else:
+        #     img = img_original
+
+        # del img_polished
+
+        if self.local_iter % 20 == 0:
             for i in range(self.contrast_flip.n_classes):
-                wandb.log({f"Class_{i+1} src": self.contrast_flip.source_mean[i, 0].item()}, step=self.local_iter+1)
-                wandb.log({f"Class_{i+1} tgt": self.contrast_flip.target_mean[i, 0].item()}, step=self.local_iter+1)
+                # wandb.log({f"Class_{i+1} src": self.contrast_flip.source_mean[i, 0].item()}, step=self.local_iter+1)
+                # wandb.log({f"Class_{i+1} tgt": self.contrast_flip.target_mean[i, 0].item()}, step=self.local_iter+1)
+                wandb.log({f"Delta_{i}": self.contrast_flip.delta[i].item()}, step=self.local_iter+1)
 
-            for name, param in norm_net.named_parameters():
-                wandb.log({name: param.data.item()}, step=self.local_iter+1)
+            # for name, param in norm_net.named_parameters():
+            #     wandb.log({name: param.data.item()}, step=self.local_iter+1)
+            # for name, param in self.contrast_flip.normalization_net.named_parameters():
+            #     wandb.log({name: param.data.item()}, step=self.local_iter+1)
 
-            wandb.log({"loss": norm_loss.item()}, step=self.local_iter + 1)
-            wandb.log({"color_mix_flag": int(self.color_mix_flag)}, step=self.local_iter + 1)
+            # # wandb.log({"loss": norm_loss.item()}, step=self.local_iter + 1)            
+            # # wandb.log({"color_mix_flag": int(self.color_mix_flag)}, step=self.local_iter + 1)
+            # wandb.log({"loss": norm_loss}, step=self.local_iter + 1)
 
             vis_img = (
                 torch.clamp(denorm(img_original, means, stds), 0, 1)
@@ -571,19 +582,12 @@ class DACS(UDADecorator):
                     strong_parameters,
                 )
 
-            if self.color_mix["type"] == "mix":
-                img_color = self.contrast_flip.color_mix(
-                    img, gt_semantic_seg, strong_parameters
-                )
-            else:
-                img_color = img
-
             if self.mix == "class":
                 for i in range(batch_size):
                     strong_parameters["mix"] = mix_masks[i]
                     mixed_img[i], mixed_lbl[i] = strong_transform(
                         strong_parameters,
-                        data=torch.stack((img_color[i], target_img[i])),
+                        data=torch.stack((img[i], target_img[i])),
                         target=torch.stack((gt_semantic_seg[i][0], pseudo_label[i])),
                     )
                     _, mixed_seg_weight[i] = strong_transform(

@@ -49,6 +49,7 @@ def convert_to_one_hot(mask, num_classes):
 @DATASETS.register_module()
 class BrainDataset(CustomDataset):
     CLASSES = (
+        "B",
         "1",
         "2",
         "3",
@@ -63,7 +64,6 @@ class BrainDataset(CustomDataset):
         "12",
         "13",
         "14",
-        "15",
     )
 
     PALETTE = [
@@ -260,8 +260,8 @@ class BrainDataset(CustomDataset):
             dice_per_class = dict(zip(self.CLASSES, ret_metrics["Dice"]))
             wandb.log({f"Dice per subject total": dice_per_class})
 
-        if with_online_evaluation:
-            WandbLogPredictions(results, gt_seg_maps, self.PALETTE)
+        # if with_online_evaluation:
+        WandbLogPredictions(results, gt_seg_maps, self.PALETTE)
 
         # quit()
         if self.CLASSES is None:

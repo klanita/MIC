@@ -27,7 +27,7 @@ class RBFActivation(nn.Module):
 
 
 class NormNet(nn.Module):
-    def __init__(self, norm_activation: str = "sigmoid", layers: List[int] = [1, 1]):
+    def __init__(self, norm_activation: str = "linear", layers: List[int] = [1, 1]):
         super(NormNet, self).__init__()
         print("".join(["-"] * 80))
         print("Normalization network")
