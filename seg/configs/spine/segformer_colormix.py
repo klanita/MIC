@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------
 
 datatag = ""
-datatag = "_euler"
+# datatag = "_euler"
 dataset = "spine_ct-mri"
 # dataset = "spine_mri-ct"
 num_classes = 6
@@ -30,7 +30,7 @@ uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
-        coloraug=True,
+        coloraug=False,
         auto_bcg=False,
     )
 )
@@ -86,5 +86,4 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
-blur = '-blur' if uda["color_mix"]["gaussian_blur"] else ""
-name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{blur}"
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}-tinto"

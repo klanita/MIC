@@ -77,7 +77,7 @@ class ClasswiseMultAugmenter:
     def color_mix(self, data, mask, mean, std):
         data_ = data.clone()
 
-        denorm_(data_, mean, std)
+        # denorm_(data_, mean, std)
 
         if self.auto_bcg:
             background_mask = []
@@ -107,7 +107,7 @@ class ClasswiseMultAugmenter:
         # if max_val != 0:
         #     data_ /= max_val
 
-        renorm_(data_, mean, std)
+        # renorm_(data_, mean, std)
         if self.auto_bcg:
             return data_[:, 0, :, :].unsqueeze(1), background_mask.unsqueeze(1)
         else:

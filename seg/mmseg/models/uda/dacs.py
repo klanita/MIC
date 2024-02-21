@@ -347,6 +347,7 @@ class DACS(UDADecorator):
 
     def intensity_normalization(self, img_original, gt_semantic_seg, means, stds):
         # estimate tgt intensities using GT segmenation masks
+        denorm_(img_original, means, stds)
 
         img_segm_hist, auto_bcg = self.contrast_flip.color_mix(
             img_original, gt_semantic_seg, means, stds
@@ -389,7 +390,10 @@ class DACS(UDADecorator):
         elif random.uniform(0, 1) < 0.5:
             img = img_segm_hist.repeat(1, 3, 1, 1)
         else:
-            img = img_original
+            img = img_original.clone()
+
+        renorm_(img, means, stds)
+        renorm_(img_original, means, stds)
 
         del img_polished
 
@@ -561,6 +565,14 @@ class DACS(UDADecorator):
                 img = self.intensity_normalization(img, gt_semantic_seg, means, stds)
         elif self.color_mix["type"] == "fda":
             img = self.fda_normalization(img, target_img, means, stds)
+
+        # # Check if all other channels are the same as the reference channel
+        # same_across_channels = all(torch.equal(img[:, 0, :, :], img[:, channel, :, :]) for channel in range(3))
+        # print('src:', same_across_channels)
+        # same_across_channels = all(torch.equal(target_img[:, 0, :, :], target_img[:, channel, :, :]) for channel in range(3))
+        # print('tgt', same_across_channels)
+        # print(abs(target_img[:, 1, :, :] - target_img[:, 0, :, :]).mean())
+        # quit()
 
         # Train on source images
         clean_losses = self.get_model().forward_train(
