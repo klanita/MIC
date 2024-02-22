@@ -20,13 +20,19 @@ _base_ = [
     # AdamW Optimizer
     "../_base_/schedules/adamw.py",
     # Linear Learning Rate Warmup with Subsequent Linear Decay
-    "../_base_/schedules/poly10warm.py",
+    "../_base_/schedules/poly10warm_med.py",
 ]
 
+burnin_global = 0
 burnin = 0
-uda = dict(color_mix=dict(freq=1.0, suppress_bg=True, burnin=burnin, 
-                          coloraug=True, gradversion='no', 
-                          burninthresh=1.0))
+uda = dict(
+    color_mix=dict(
+        burnin_global=burnin_global,
+        burnin=burnin,
+        coloraug=True,
+        auto_bcg=False,
+    )
+)
 
 norm_net = dict(norm_activation="linear", layers=[1, 1])
 # norm_net = dict(norm_activation="relu", layers=[1, 32, 1])
@@ -68,7 +74,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=1000, metric="mDice")
+evaluation = dict(interval=100, metric="mDice")
 # Meta Information for Result Analysis
 
 norm = f"{norm_net['norm_activation']}"
@@ -79,4 +85,4 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_10k"
-name = f"{dataset}{datatag}_{name_architecture}_{norm}-burnin{burnin}-NM"
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}-debug"
