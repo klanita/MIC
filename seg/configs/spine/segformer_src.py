@@ -8,7 +8,8 @@
 
 # datatag = ""
 datatag = "_euler"
-dataset = "spine_mri"
+dataset = "spine_ct-gan-mri"
+# dataset = "spine_mri"
 # dataset = "spine_ct"
 # dataset = "spine_ct-mri"
 # dataset = "spine_mri-ct"

@@ -10,7 +10,7 @@
 dataset = "wmh_umc-nuhs"
 
 # datatag = "_noph"
-datatag = "_noph_v2_euler"
+datatag = "_v2_euler"
 num_classes = 2
 
 # datatag = "_noph_bcg"
@@ -30,7 +30,7 @@ _base_ = [
     "../_base_/schedules/poly10warm_med.py",
 ]
 
-burnin_global = 1000
+burnin_global = 0
 burnin = 0
 uda = dict(
     color_mix=dict(

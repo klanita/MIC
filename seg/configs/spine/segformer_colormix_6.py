@@ -25,7 +25,7 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 0
+burnin = 1000
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
@@ -86,4 +86,5 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
-name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}"
+blur = '-blur' if uda["color_mix"]["gaussian_blur"] else ""
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{blur}"

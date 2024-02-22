@@ -4,8 +4,8 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-datatag = ""
-datatag = "_ph_euler"
+# datatag = ""
+datatag = "_euler"
 dataset = "spine_ct-mri"
 # dataset = "spine_mri-ct"
 num_classes = 6
@@ -24,13 +24,13 @@ _base_ = [
     "../_base_/schedules/poly10warm_med.py",
 ]
 
-burnin_global = 0
+burnin_global = 1000
 burnin = 0
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
-        coloraug=True,
+        coloraug=False,
         auto_bcg=False,
     )
 )
@@ -86,4 +86,4 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
-name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}"
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}-tinto"

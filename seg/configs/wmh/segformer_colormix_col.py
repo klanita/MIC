@@ -10,7 +10,7 @@
 dataset = "wmh_umc-nuhs"
 
 # datatag = "_noph"
-datatag = "_noph_v2_euler"
+datatag = "_v2_euler"
 num_classes = 2
 
 # datatag = "_noph_bcg"
