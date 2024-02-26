@@ -8,7 +8,8 @@ import torch
 import torch.nn as nn
 from torch import nn, optim
 import cv2
-
+from sklearn.linear_model import LinearRegression
+import numbers
 
 class ClasswiseMultAugmenter:
     def __init__(
@@ -74,6 +75,47 @@ class ClasswiseMultAugmenter:
         renorm_(source, mean, std)
         renorm_(target, mean, std)
 
+    # def color_mix(self, data, mask, mean, std):
+    #     data_ = data.clone()
+
+    #     denorm_(data_, mean, std)
+
+    #     if self.auto_bcg:
+    #         background_mask = []
+    #         for i in range(data_.shape[0]):
+    #             background_mask.append(
+    #                 self.find_background(data_[i])
+    #             )
+    #         background_mask = torch.stack(background_mask).to(self.device)
+
+    #     for i in range(self.n_classes):
+    #         for c in range(3):
+    #             # old_min = data_[:, c, :, :][mask.squeeze(1) != 0].min()
+    #             if self.auto_bcg:
+    #                 data_[:, c, :, :][
+    #                     (mask.squeeze(1) == i) & (background_mask != 0)
+    #                 ] += self.coef[i, 0]
+    #             else:
+    #                 data_[:, c, :, :][mask.squeeze(1) == i] += self.coef[i, 0]
+
+    #             # new_min = data_[:, c, :, :][mask.squeeze(1) != 0].min()
+
+    #             # data_[:, c, :, :][mask.squeeze(1) != 0] += old_min - new_min
+
+    #     # min_val = data_.min()
+    #     # data_ -= min_val
+    #     # max_val = data_.max()
+    #     # if max_val != 0:
+    #     #     data_ /= max_val
+
+    #     renorm_(data_, mean, std)
+    #     if self.auto_bcg:
+    #         # return data_[:, 0, :, :].unsqueeze(1), background_mask.unsqueeze(1)
+    #         return data_, background_mask.unsqueeze(1)
+    #     else:
+    #         # return data_, None
+    #         return data_, None
+        
     def color_mix(self, data, mask, mean, std):
         data_ = data.clone()
 
@@ -111,6 +153,7 @@ class ClasswiseMultAugmenter:
         if self.auto_bcg:
             return data_[:, 0, :, :].unsqueeze(1), background_mask.unsqueeze(1)
         else:
+            # return data_, None
             return data_[:, 0, :, :].unsqueeze(1), None
 
     def find_background(self, img):
@@ -165,6 +208,26 @@ class ClasswiseMultAugmenter:
 
         return torch.Tensor(final_mask)
 
+    def _linear_match_cost(self, source, template, mask):
+        h, w = source.shape
+        source_vec = source.reshape(-1)
+        template_vec = template.reshape(-1)
+        mask_vec = mask.reshape(-1)
+        # DecisionTreeRegressor(max_depth=10)
+        # MLPRegressor(hidden_layer_sizes=(256,256,256))
+        reg = LinearRegression().fit(source_vec[mask_vec != 0].reshape(-1, 1), template_vec[mask_vec != 0])
+        source_new = np.zeros(h*w)
+        source_new[mask_vec != 0] = reg.predict(source_vec[mask_vec != 0].reshape(-1, 1))
+        source_new[mask_vec == 0] = template_vec[mask_vec == 0]
+        self.lin_coef = reg.coef_
+        self.bias = reg.intercept_
+
+        # print('source', source_vec.min(), source_vec.max())
+        # print('template', template_vec.min(), template_vec.max())
+        # print('source_new', source_new.min(), source_new.max())
+        source_new = torch.Tensor(source_new.reshape(h, w)).to(self.device)
+        # source_new.clamp(0, 1)
+        return source_new.unsqueeze(0)
 
 def strong_transform(param, data=None, target=None):
     assert (data is not None) or (target is not None)
@@ -213,6 +276,19 @@ def renorm_(img, mean, std):
     img.mul_(255.0).sub_(mean).div_(std)
 
 
+# def color_jitter_med(color_jitter, mean, std, data, b=(0.0, 1.1), c=(0.5, 1.0), p=0.25):
+#     # s is the strength of colorjitter
+#     if data.shape[1] == 3:
+#         if color_jitter < p:
+#             seq = nn.Sequential(
+#                 kornia.augmentation.ColorJitter(
+#                     brightness=b, contrast=c, saturation=0.25, hue=0
+#                 )
+#             )
+#             denorm_(data, mean, std)
+#             renorm_(data, mean, std)
+#     return data
+
 def color_jitter_med(color_jitter, mean, std, data=None, target=None, s=0.25, p=0.1):
     # s is the strength of colorjitter
     if not (data is None):
@@ -229,7 +305,7 @@ def color_jitter_med(color_jitter, mean, std, data=None, target=None, s=0.25, p=
                 denorm_(data, mean, std)
                 data = seq(data)
                 renorm_(data, mean, std)
-    return data, target
+    return data
 
 
 def color_jitter(color_jitter, mean, std, data=None, target=None, s=0.25, p=0.2):
@@ -314,3 +390,78 @@ def one_mix(mask, data=None, target=None):
             0
         )
     return data, target
+
+
+
+def number_or_list_to_array(x):
+    if isinstance(x, numbers.Number):
+        return np.array([x])
+    elif isinstance(x, list):
+        return np.array(x)
+
+def uniform_interval_sampling(interval_starts, interval_ends, rng):
+
+    assert interval_starts.shape == interval_ends.shape
+    n_intervals = len(interval_starts)
+
+    indices = np.arange(n_intervals)
+    interval_lengths = interval_ends - interval_starts
+
+    if all(interval_lengths == 0):
+        interval_lengths = np.ones_like(interval_lengths)
+    
+    interval_lengths /= sum(interval_lengths)
+    index = rng.choice(indices, p=interval_lengths)
+
+    sample = rng.uniform(interval_starts[index], interval_ends[index])
+    return sample
+
+def apply_data_augmentation(
+    images,
+    da_ratio       = 1.25,
+    gamma_min      = 0.5,
+    gamma_max      = 2.0,
+    brightness_min = 0.0,
+    brightness_max = 0.1,
+    noise_mean     = 0.0,
+    noise_std      = 0.1,
+    rng            = None,
+    sigma_range: tuple = (0.15, 1.25),
+    transforms = ['contrast', 'brightness', 'noise', 'blur']
+):
+
+    images_ = images.clone()
+
+    if rng is None:
+        rng = np.random.default_rng()
+
+    # ========
+    # contrast
+    # ========
+    if (rng.random() < da_ratio) and ('contrast' in transforms):
+
+        gamma_min = number_or_list_to_array(gamma_min)
+        gamma_max = number_or_list_to_array(gamma_max)
+
+        # gamma contrast augmentation
+        for i in range(images_.shape[0]):
+            c = np.round(uniform_interval_sampling(gamma_min, gamma_max, rng), 2)
+            images_[i] = images_[i]**c
+        # not normalizing after the augmentation transformation,
+        # as it leads to quite strong reduction of the intensity 
+        # range when done after high values of gamma augmentation
+
+    # ========
+    # brightness
+    # ========
+    if (rng.random() < da_ratio) and ('brightness' in transforms):
+
+        brightness_min = number_or_list_to_array(brightness_min)
+        brightness_max = number_or_list_to_array(brightness_max)
+
+        # brightness augmentation
+        for i in range(images_.shape[0]):
+            c = np.round(uniform_interval_sampling(brightness_min, brightness_max, rng), 2)
+            images_[i] = images_[i] + c
+
+    return images_

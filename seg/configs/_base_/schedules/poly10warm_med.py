@@ -12,4 +12,5 @@ lr_config = dict(
     warmup_ratio=1e-6,
     power=1.0,
     min_lr=0.0,
+    # min_lr=1e-05,
     by_epoch=False)

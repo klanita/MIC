@@ -4,8 +4,8 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-# datatag = ""
-datatag = "_euler"
+datatag = ""
+# datatag = "_euler"
 dataset = "spine_ct-mri"
 # dataset = "spine_mri-ct"
 num_classes = 6
@@ -25,12 +25,12 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 0
+burnin = -1
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
-        coloraug=False,
+        coloraug=True,
         auto_bcg=False,
     )
 )
@@ -75,7 +75,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=200, metric="mDice")
+evaluation = dict(interval=500, metric="mDice")
 # Meta Information for Result Analysis
 
 
@@ -85,5 +85,5 @@ name_architecture = "segformer_r101"
 name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
-name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
+name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_10k"
 name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}"

@@ -18,7 +18,6 @@ uda = dict(
         "burnin": -1,
         "burninthresh": 1.0,
         "coloraug": True,        
-        "color_jitter_s": 0.1,
         "color_jitter_p": 0.25,
         "gaussian_blur": False,
         "blur": 0.1,

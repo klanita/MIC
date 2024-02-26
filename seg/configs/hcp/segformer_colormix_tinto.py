@@ -24,7 +24,7 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 0
+burnin = -1
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
@@ -74,7 +74,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=100, metric="mDice")
+evaluation = dict(interval=500, metric="mDice")
 # Meta Information for Result Analysis
 
 norm = f"{norm_net['norm_activation']}"

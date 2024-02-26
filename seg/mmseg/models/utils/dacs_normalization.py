@@ -27,46 +27,47 @@ class RBFActivation(nn.Module):
 
 
 class NormNet(nn.Module):
-    def __init__(self, norm_activation: str = "sigmoid", layers: List[int] = [1, 1]):
+    def __init__(self, norm_activation: str = "linear", layers: List[int] = [1, 1]):
         super(NormNet, self).__init__()
         print("".join(["-"] * 80))
         print("Normalization network")
         print("NormNet: norm_activation =", norm_activation, "layers =", layers)
 
-        norm_layers = []
-        if norm_activation == "sigmoid":
-            norm_layers.append(nn.Conv2d(1, 1, kernel_size=1, bias=True))
-            norm_layers.append(nn.Sigmoid())
-            norm_layers.append(nn.Conv2d(1, 1, kernel_size=1, bias=True))
-        elif norm_activation == "linear":
-            norm_layers.append(nn.Conv2d(1, 1, kernel_size=1, bias=True))
-        else:
-            for layer in range(1, len(layers)):
-                norm_layers.append(
-                    nn.Conv2d(
-                        layers[layer - 1], layers[layer], kernel_size=1, bias=True
-                    )
-                )
-                if layers[layer] != 1:
-                    if norm_activation == "rbf":
-                        init_value = torch.randn(layers[layer], 1, 1) * 0.05 + 0.2
-                        norm_layers.append(RBFActivation(init_value))
-                    elif norm_activation == "sine":
-                        norm_layers.append(Sine())
-                    elif norm_activation == "relu":
-                        norm_layers.append(nn.ReLU())
-                    else:
-                        raise NotImplementedError("Activation function not implemented")
+        self.lin = nn.Conv2d(1, 1, kernel_size=1, bias=True)
+        # norm_layers = []
+        # if norm_activation == "sigmoid":
+        #     norm_layers.append(nn.Conv2d(1, 1, kernel_size=1, bias=True))
+        #     norm_layers.append(nn.Sigmoid())
+        #     norm_layers.append(nn.Conv2d(1, 1, kernel_size=1, bias=True))
+        # elif norm_activation == "linear":
+        #     norm_layers.append(nn.Conv2d(1, 1, kernel_size=1, bias=True))
+        # else:
+        #     # for layer in range(1, len(layers)):
+        #     #     norm_layers.append(
+        #     #         nn.Conv2d(
+        #     #             layers[layer - 1], layers[layer], kernel_size=1, bias=True
+        #     #         )
+        #     #     )
+        #     #     if layers[layer] != 1:
+        #     #         if norm_activation == "rbf":
+        #     #             init_value = torch.randn(layers[layer], 1, 1) * 0.05 + 0.2
+        #     #             norm_layers.append(RBFActivation(init_value))
+        #     #         elif norm_activation == "sine":
+        #     #             norm_layers.append(Sine())
+        #     #         elif norm_activation == "relu":
+        #     #             norm_layers.append(nn.ReLU())
+        #     #         else:
+        #     raise NotImplementedError("Activation function not implemented")
 
-        self.norm_layers = nn.Sequential(*norm_layers)
+        # self.norm_layers = nn.Sequential(*norm_layers)
 
-        print(self.norm_layers)
+        print(self.lin)
         print("".join(["-"] * 80))
 
         # self.initialize_weights()
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
-        return self.norm_layers(images)
+        return self.lin(images)
 
     def initialize_weights(self) -> None:
         for m in self.norm_layers.modules():

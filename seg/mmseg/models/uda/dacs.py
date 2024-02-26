@@ -43,6 +43,7 @@ from mmseg.models.utils.dacs_transforms import (
     strong_transform,
     color_jitter_med,
     gaussian_blur,
+    apply_data_augmentation,
     ClasswiseMultAugmenter,
 )
 from mmseg.models.utils.visualization import prepare_debug_out, subplotimg
@@ -345,14 +346,134 @@ class DACS(UDADecorator):
             pseudo_weight *= valid_pseudo_mask.squeeze(1)
         return pseudo_weight
 
+    # def intensity_normalization(self, img_original, gt_semantic_seg, means, stds):
+    #     # estimate tgt intensities using GT segmenation masks
+    #     # denorm_(img_original, means, stds)
+
+    #     img_segm_hist, auto_bcg = self.contrast_flip.color_mix(
+    #         img_original, gt_semantic_seg, means, stds
+    #     )
+    #     # print(img_segm_hist.shape)
+    #     # update normalization net
+    #     norm_net = self.get_model().normalization_net
+    #     img_polished = norm_net(img_original[:, 0, :, :].unsqueeze(1))
+
+    #     if self.color_mix["suppress_bg"]:
+    #         if auto_bcg is None:
+    #             foreground_mask = gt_semantic_seg > 0
+    #             background_mask = gt_semantic_seg == 0
+    #         else:
+    #             foreground_mask = auto_bcg > 0
+    #             background_mask = auto_bcg == 0
+
+    #         norm_loss = self.criterion(
+    #             img_polished[foreground_mask], img_segm_hist[:, 0, :, :].unsqueeze(1)[foreground_mask]
+    #         )
+    #     else:
+    #         norm_loss = self.criterion(img_polished, img_segm_hist[:, 0, :, :].unsqueeze(1))
+
+    #     norm_loss.backward(retain_graph=False)
+
+    #     if norm_loss.item() < self.color_mix["burninthresh"]:
+    #         self.color_mix_flag = True
+    #     # self.color_mix_flag = norm_loss.item() < self.color_mix["burninthresh"]
+
+    #     if (
+    #         (self.local_iter >= self.color_mix["burnin"])
+    #         and (self.color_mix["burnin"] != -1)
+    #     ) or ((self.color_mix["burnin"] == -1) and self.color_mix_flag):
+    #         img = img_polished.detach().clone()
+
+    #         if self.color_mix["suppress_bg"]:
+    #             img[background_mask] = img_segm_hist[:, 0, :, :].unsqueeze(1)[background_mask]
+
+    #         img.mul_(stds[:, 0, :, :].unsqueeze(1)).add_(means[:, 0, :, :].unsqueeze(1)).div_(255.0)
+    #         img = img.repeat(1, 3, 1, 1)
+    #         renorm_(img, means, stds)
+
+    #     # elif random.uniform(0, 1) < 0.5:
+    #     else:
+    #         img = img_segm_hist.clone()
+    #         img.mul_(stds[0]).add_(means[0]).div_(255.0)
+    #         img = img.repeat(1, 3, 1, 1)
+    #         renorm_(img, means, stds)
+    #     # else:
+    #     #     img = img_original.clone()
+
+    #     # renorm_(img, means, stds)
+    #     # renorm_(img_original, means, stds)
+
+    #     del img_polished
+
+    #     if self.local_iter % 50 == 0:
+    #         # for i in range(self.contrast_flip.n_classes):
+    #         #     wandb.log(
+    #         #         {f"Class_{i+1} src": self.contrast_flip.source_mean[i, 0].item()},
+    #         #         step=self.local_iter + 1,
+    #         #     )
+    #         #     wandb.log(
+    #         #         {f"Class_{i+1} tgt": self.contrast_flip.target_mean[i, 0].item()},
+    #         #         step=self.local_iter + 1,
+    #         #     )
+
+    #         # print(img_segm_hist.shape)
+    #         # quit()
+    #         for name, param in norm_net.named_parameters():
+    #             wandb.log({name: param.data.item()}, step=self.local_iter + 1)
+
+    #         wandb.log({"loss": norm_loss.item()}, step=self.local_iter + 1)
+    #         wandb.log(
+    #             {"color_mix_flag": int(self.color_mix_flag)}, step=self.local_iter + 1
+    #         )
+
+    #         vis_img = (
+    #             torch.clamp(denorm(img_original, means, stds), 0, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
+    #         vis_trg_img = (
+    #             torch.clamp(denorm(img_segm_hist, means, stds), 0, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
+    #         vis_mixed_img = (
+    #             torch.clamp(denorm(img, means, stds), 0, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
+
+    #         wandb.log(
+    #             {
+    #                 "Augmentation": wandb.Image(
+    #                     np.concatenate([vis_img, vis_trg_img, vis_mixed_img], axis=1)
+    #                 )
+    #             }
+    #         )
+
+    #     if self.color_mix["coloraug"]:
+    #         img = color_jitter_med(
+    #             color_jitter=random.uniform(0, 1),
+    #             p=self.color_mix["color_jitter_p"],
+    #             mean=means,
+    #             std=stds,
+    #             data=img.clone(),
+    #         )
+
+    #     if self.color_mix["gaussian_blur"]:
+    #         img = gaussian_blur(blur=random.uniform(0, 1), data=img.clone())[0]
+
+    #     return img
     def intensity_normalization(self, img_original, gt_semantic_seg, means, stds):
         # estimate tgt intensities using GT segmenation masks
-        denorm_(img_original, means, stds)
+        # denorm_(img_original, means, stds)
 
         img_segm_hist, auto_bcg = self.contrast_flip.color_mix(
             img_original, gt_semantic_seg, means, stds
         )
-
+        # print(img_segm_hist.shape)
         # update normalization net
         norm_net = self.get_model().normalization_net
         img_polished = norm_net(img_original[:, 0, :, :].unsqueeze(1))
@@ -366,10 +487,10 @@ class DACS(UDADecorator):
                 background_mask = auto_bcg == 0
 
             norm_loss = self.criterion(
-                img_polished[foreground_mask], img_segm_hist[foreground_mask]
+                img_polished[foreground_mask], img_segm_hist[:, 0, :, :].unsqueeze(1)[foreground_mask]
             )
         else:
-            norm_loss = self.criterion(img_polished, img_segm_hist)
+            norm_loss = self.criterion(img_polished, img_segm_hist[:, 0, :, :].unsqueeze(1))
 
         norm_loss.backward(retain_graph=False)
 
@@ -384,30 +505,38 @@ class DACS(UDADecorator):
             img = img_polished.detach().clone()
 
             if self.color_mix["suppress_bg"]:
-                img[background_mask] = img_segm_hist[background_mask]
+                img[background_mask] = img_segm_hist[:, 0, :, :].unsqueeze(1)[background_mask]
 
+            img.mul_(stds[:, 0, :, :].unsqueeze(1)).add_(means[:, 0, :, :].unsqueeze(1)).div_(255.0)
             img = img.repeat(1, 3, 1, 1)
+            renorm_(img, means, stds)
+
         elif random.uniform(0, 1) < 0.5:
-            img = img_segm_hist.repeat(1, 3, 1, 1)
+            img = img_segm_hist.clone()
+            img.mul_(stds[:, 0]).add_(means[:, 0]).div_(255.0)
+            img = img.repeat(1, 3, 1, 1)
+            renorm_(img, means, stds)
         else:
             img = img_original.clone()
 
-        renorm_(img, means, stds)
-        renorm_(img_original, means, stds)
+        # renorm_(img, means, stds)
+        # renorm_(img_original, means, stds)
 
         del img_polished
 
-        if self.local_iter % 500 == 0:
-            for i in range(self.contrast_flip.n_classes):
-                wandb.log(
-                    {f"Class_{i+1} src": self.contrast_flip.source_mean[i, 0].item()},
-                    step=self.local_iter + 1,
-                )
-                wandb.log(
-                    {f"Class_{i+1} tgt": self.contrast_flip.target_mean[i, 0].item()},
-                    step=self.local_iter + 1,
-                )
+        if self.local_iter % 50 == 0:
+            # for i in range(self.contrast_flip.n_classes):
+            #     wandb.log(
+            #         {f"Class_{i+1} src": self.contrast_flip.source_mean[i, 0].item()},
+            #         step=self.local_iter + 1,
+            #     )
+            #     wandb.log(
+            #         {f"Class_{i+1} tgt": self.contrast_flip.target_mean[i, 0].item()},
+            #         step=self.local_iter + 1,
+            #     )
 
+            # print(img_segm_hist.shape)
+            # quit()
             for name, param in norm_net.named_parameters():
                 wandb.log({name: param.data.item()}, step=self.local_iter + 1)
 
@@ -446,17 +575,185 @@ class DACS(UDADecorator):
         if self.color_mix["coloraug"]:
             img = color_jitter_med(
                 color_jitter=random.uniform(0, 1),
-                s=self.color_mix["color_jitter_s"],
+                # s=self.color_mix["color_jitter_s"],
                 p=self.color_mix["color_jitter_p"],
                 mean=means,
                 std=stds,
                 data=img.clone(),
-            )[0]
+            )
 
         if self.color_mix["gaussian_blur"]:
             img = gaussian_blur(blur=random.uniform(0, 1), data=img.clone())[0]
 
         return img
+        
+    # def intensity_normalization(self, img_original, gt_semantic_seg, means, stds):
+    #     # estimate tgt intensities using GT segmenation masks
+    #     denorm_(img_original, means, stds)
+
+    #     img_segm_hist, auto_bcg = self.contrast_flip.color_mix(
+    #         img_original, gt_semantic_seg, means, stds
+    #     )
+    #     # print(img_segm_hist.shape)
+    #     # update normalization net
+    #     norm_net = self.get_model().normalization_net
+    #     img_polished = norm_net(img_original[:, 0, :, :].unsqueeze(1))
+
+    #     if self.color_mix["suppress_bg"]:
+    #         if auto_bcg is None:
+    #             foreground_mask = gt_semantic_seg > 0
+    #             background_mask = gt_semantic_seg == 0
+    #         else:
+    #             foreground_mask = auto_bcg > 0
+    #             background_mask = auto_bcg == 0
+
+    #         norm_loss = self.criterion(
+    #             img_polished[foreground_mask], img_segm_hist[foreground_mask]
+    #             # img_polished[foreground_mask], img_segm_hist[:, 0, :, :].unsqueeze(1)[foreground_mask]
+    #         )
+    #     else:
+    #         norm_loss = self.criterion(img_polished, img_segm_hist[:, 0, :, :].unsqueeze(1))
+
+    #     norm_loss.backward(retain_graph=False)
+
+    #     if norm_loss.item() < self.color_mix["burninthresh"]:
+    #         self.color_mix_flag = True
+    #     # self.color_mix_flag = norm_loss.item() < self.color_mix["burninthresh"]
+
+    #     if (
+    #         (self.local_iter >= self.color_mix["burnin"])
+    #         and (self.color_mix["burnin"] != -1)
+    #     ) or ((self.color_mix["burnin"] == -1) and self.color_mix_flag):
+    #         img = img_polished.detach().clone()
+    #         if img.min() < 0:
+    #             img -= min(norm_net.lin.weight.item() + norm_net.lin.bias.item(), norm_net.lin.bias.item())
+    #         # img += img_segm_hist[foreground_mask].min().item()
+    #         # print(img.min(), img.max())
+    #         # print(img_segm_hist[foreground_mask].min(), img_segm_hist[foreground_mask].max())
+    #         # print(img_segm_hist[background_mask].min(), img_segm_hist[background_mask].max())
+    #         # quit()
+            
+
+    #         if self.color_mix["suppress_bg"]:
+    #             # img[background_mask] = img_segm_hist[:, 0, :, :].unsqueeze(1)[background_mask]                
+    #             img[background_mask] = img_segm_hist[background_mask]
+    #             # min_fg_hist = img_segm_hist[foreground_mask].min()
+    #             # min_fg = img[foreground_mask].min()
+    #             # img[foreground_mask] += min_fg_hist - min_fg
+
+    #         # img.mul_(stds[:, 0, :, :].unsqueeze(1)).add_(means[:, 0, :, :].unsqueeze(1)).div_(255.0)
+    #         img = img.repeat(1, 3, 1, 1)
+    #         # renorm_(img, means, stds)
+
+    #     # elif random.uniform(0, 1) < 0.5:
+    #     # else:
+    #     #     # img = img_original.clone()
+    #     #     img = img_segm_hist.repeat(1, 3, 1, 1)
+    #     elif random.uniform(0, 1) < 0.5:
+    #         img = img_segm_hist.repeat(1, 3, 1, 1)
+    #     else:
+    #         img = []
+    #         for i in range(img_segm_hist.shape[0]):    
+    #             lin_pred =  self.contrast_flip._linear_match_cost(
+    #                 img_original[i, 0].cpu().numpy(), img_segm_hist[i, 0].cpu().numpy(), gt_semantic_seg[i, 0].cpu().numpy())
+    #             img.append(lin_pred)
+    #         img = torch.stack(img)
+
+    #         # img.mul_(stds[0]).add_(means[0]).div_(255.0)
+    #         img = img.repeat(1, 3, 1, 1)
+
+    #     # img = apply_data_augmentation(img)
+    #     # else:
+    #     #     img = []
+    #     #     for i in range(img_segm_hist.shape[0]):    
+    #     #         lin_pred =  self.contrast_flip._linear_match_cost(
+    #     #             img_original[i, 0].cpu().numpy(), img_segm_hist[i, 0].cpu().numpy(), gt_semantic_seg[i, 0].cpu().numpy())
+    #     #         img.append(lin_pred)
+    #     #         wandb.log({"lin_coef": self.contrast_flip.lin_coef})
+    #     #         wandb.log({"lin_bias": self.contrast_flip.bias})
+
+    #     #     img = torch.stack(img)
+
+    #     #     # img.mul_(stds[0]).add_(means[0]).div_(255.0)
+    #     #     img = img.repeat(1, 3, 1, 1)
+
+    #     #     # renorm_(img, means, stds)
+    #     # # else:
+    #     # #     img = img_original.clone()
+
+    #     renorm_(img, means, stds)
+    #     renorm_(img_original, means, stds)
+
+    #     del img_polished
+
+    #     if self.local_iter % 50 == 0:
+    #         # for i in range(self.contrast_flip.n_classes):
+    #         #     wandb.log(
+    #         #         {f"Class_{i+1} src": self.contrast_flip.source_mean[i, 0].item()},
+    #         #         step=self.local_iter + 1,
+    #         #     )
+    #         #     wandb.log(
+    #         #         {f"Class_{i+1} tgt": self.contrast_flip.target_mean[i, 0].item()},
+    #         #         step=self.local_iter + 1,
+    #         #     )
+
+    #         # print(img_segm_hist.shape)
+    #         # quit()
+    #         for name, param in norm_net.named_parameters():
+    #             wandb.log({name: param.data.item()}, step=self.local_iter + 1)
+
+    #         wandb.log({"loss": norm_loss.item()}, step=self.local_iter + 1)
+    #         wandb.log(
+    #             {"color_mix_flag": int(self.color_mix_flag)}, step=self.local_iter + 1
+    #         )
+
+    #         vis_img = (
+    #             torch.clamp(denorm(img_original, means, stds), 0, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
+    #         vis_trg_img = (
+    #             img_segm_hist.repeat(1, 3, 1, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
+    #         # vis_trg_img = (
+    #         #     torch.clamp(denorm(img_segm_hist, means, stds), 0, 1)
+    #         #     .cpu()
+    #         #     .permute(0, 2, 3, 1)[0]
+    #         #     .numpy()
+    #         # )
+    #         vis_mixed_img = (
+    #             torch.clamp(denorm(img, means, stds), 0, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
+
+    #         wandb.log(
+    #             {
+    #                 "Augmentation": wandb.Image(
+    #                     np.concatenate([vis_img, vis_trg_img, vis_mixed_img], axis=1)
+    #                 )
+    #             }
+    #         )
+
+    #     if self.color_mix["coloraug"]:
+    #         img = color_jitter_med(
+    #             color_jitter=random.uniform(0, 1),
+    #             # s=self.color_mix["color_jitter_s"],
+    #             p=self.color_mix["color_jitter_p"],
+    #             mean=means,
+    #             std=stds,
+    #             data=img.clone(),
+    #         )
+
+    #     if self.color_mix["gaussian_blur"]:
+    #         img = gaussian_blur(blur=random.uniform(0, 1), data=img.clone())[0]
+
+    #     return img
 
     def fda_normalization(self, img_original, target_img, means, stds):
         # estimate tgt intensities using GT segmenation masks

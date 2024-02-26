@@ -10,7 +10,7 @@
 dataset = "wmh_umc-nuhs"
 
 # datatag = "_noph"
-datatag = "_noph_v2_euler"
+datatag = "_noph_v2"
 num_classes = 2
 
 # datatag = "_noph_bcg"
@@ -36,7 +36,7 @@ uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
-        coloraug=False,
+        coloraug=True,
         auto_bcg=False,
     )
 )

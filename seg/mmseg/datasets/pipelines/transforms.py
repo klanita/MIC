@@ -1143,8 +1143,10 @@ class MedPhotoMetricDistortion(object):
                         gamma_max: float = 2.0,
                         brightness_min: float = 0.0,
                         brightness_max: float = 0.1,
-                        noise_min: float = 0.0,
-                        noise_max: float = 0.1
+                        noise_mean: float = 0.0,
+                        noise_std: float = 0.1,
+                        blur_min: float = 0.25,
+                        blur_max: float = 1.5,
                         ):
         
         self.data_aug_ratio = data_aug_ratio
@@ -1152,8 +1154,10 @@ class MedPhotoMetricDistortion(object):
         self.gamma_max = gamma_max
         self.brightness_min = brightness_min
         self.brightness_max = brightness_max
-        self.noise_min = noise_min
-        self.noise_max = noise_max
+        self.noise_mean = noise_mean
+        self.noise_std = noise_std
+        self.blur_min = blur_min
+        self.blur_max = blur_max
     
     def __call__(self, results):
         """Call function to randomly crop images, semantic segmentation maps.
@@ -1188,7 +1192,16 @@ class MedPhotoMetricDistortion(object):
         # ========
         if np.random.rand() < self.data_aug_ratio:
             # noise augmentation
-            img += np.random.normal(self.noise_min, self.noise_max, size=img.shape)
+            img += np.random.normal(self.noise_mean, self.noise_std, size=img.shape)
+
+        # ========
+        # blur
+        # ========
+        if np.random.rand() < self.data_aug_ratio:
+            # noise augmentation
+            sigma = np.random.uniform(self.blur_min, self.blur_max[1])
+            for c in range(img.shape[2]):                
+                img[:, :, c] = gaussian_filter(img[:, :, c], sigma, order=0)
         
         results['img'] = np.clip(img * 255, 0, 255).astype(np.uint8)
    
@@ -1201,8 +1214,10 @@ class MedPhotoMetricDistortion(object):
                         f'gamma_max={self.gamma_max}, '
                         f'brightness_min={self.brightness_min}, '
                         f'brightness_max={self.brightness_max}, '
-                        f'noise_min={self.noise_min}, '
-                        f'noise_max={self.noise_max})')
+                        f'blur_min={self.blur_min}, '
+                        f'blur_max={self.blur_max}, '
+                        f'noise_min={self.noise_mean}, '
+                        f'noise_max={self.noise_std})')
         
         return repr_str
     
