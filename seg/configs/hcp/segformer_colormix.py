@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------
 
 datatag = ""
-datatag = "_euler_v2"
+datatag = "_v2"
 dataset = 'brain_hcp1-hcp2'
 num_classes=15
 
@@ -14,7 +14,7 @@ _base_ = [
     # DAFormer Network Architecture
     "../_base_/models/segformer_r101.py",
     # GTA->Cityscapes Data Loading
-    f"../_base_/datasets/uda_{dataset}_256x256{datatag}.py",
+    f"../_base_/datasets/hcp/uda_{dataset}_256x256{datatag}.py",
     # Basic UDA Self-Training
     "../_base_/uda/dacs_colormix.py",
     # AdamW Optimizer
@@ -24,22 +24,28 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 0
+burnin = 500
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
         coloraug=True,
+        gaussian_blur=False,
         auto_bcg=False,
-    )
+        bias=1.09021,
+        weight=-0.78673,
+        extra_flip=True
+    ),
+    debug_img_interval=5
 )
 
-norm_net = dict(norm_activation="linear", layers=[1, 1])
+
+# norm_net = dict(norm_activation="linear", layers=[1, 1])
 # norm_net = dict(norm_activation="relu", layers=[1, 32, 1])
 
 model = dict(
     decode_head=dict(num_classes=num_classes),
-    norm_cfg=norm_net,
+    # norm_cfg=norm_net,
 )
 
 seed = 0
@@ -74,10 +80,9 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=1000, metric="mDice")
+evaluation = dict(interval=100, metric="mDice")
 # Meta Information for Result Analysis
 
-norm = f"{norm_net['norm_activation']}"
 exp = "basic"
 name_dataset = f"{dataset}{datatag}"
 name_architecture = "segformer_r101"
@@ -85,4 +90,5 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_10k"
-name = f"{dataset}{datatag}_{name_architecture}_{norm}-burnin{burnin}-NM"
+extra_flip_flag = '-flip' if uda['color_mix']['extra_flip'] else ''
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"

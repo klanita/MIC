@@ -10,7 +10,7 @@
 dataset = "wmh_umc-nuhs"
 
 # datatag = "_noph"
-datatag = "_noph_v2_euler"
+datatag = "_noph_v2"
 num_classes = 2
 
 # datatag = "_noph_bcg"
@@ -21,7 +21,7 @@ _base_ = [
     # DAFormer Network Architecture
     "../_base_/models/segformer_r101.py",
     # GTA->Cityscapes Data Loading
-    f"../_base_/datasets/uda_{dataset}_256x256{datatag}.py",
+    f"../_base_/datasets/wmh/uda_{dataset}_256x256{datatag}.py",
     # Basic UDA Self-Training
     "../_base_/uda/dacs_colormix.py",
     # AdamW Optimizer
@@ -31,21 +31,24 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 0
+burnin = 500
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
-        coloraug=False,
+        coloraug=True,
         auto_bcg=False,
+        bias=0.54947, 
+        weight=0.0055,
+        extra_flip=False
     )
 )
 
-norm_net = dict(norm_activation="linear", layers=[1, 1])
+# norm_net = dict(norm_activation="linear", layers=[1, 1])
 
 model = dict(
     decode_head=dict(num_classes=num_classes),
-    norm_cfg=norm_net,
+    # norm_cfg=norm_net,
 )
 
 seed = 0
@@ -90,5 +93,5 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_10k"
-
-name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}"
+extra_flip_flag = '-flip' if uda['color_mix']['extra_flip'] else ''
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"

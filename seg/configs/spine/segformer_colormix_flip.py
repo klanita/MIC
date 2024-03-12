@@ -6,7 +6,7 @@
 
 datatag = ""
 # datatag = "_euler"
-datatag = ""
+datatag = "_flip"
 dataset = "spine_ct-mri"
 # dataset = "spine_mri-ct"
 num_classes = 6
@@ -33,18 +33,15 @@ uda = dict(
         burnin=burnin,
         coloraug=True,
         auto_bcg=False,
-        bias=0.40618, 
-        weight=-0.30236,
-        extra_flip=False
     )
 )
 
-# norm_net = dict(norm_activation="linear", layers=[1, 1])
+norm_net = dict(norm_activation="linear", layers=[1, 1])
 # norm_net = dict(norm_activation="relu", layers=[1, 32, 1])
 
 model = dict(
     decode_head=dict(num_classes=num_classes),
-    # norm_cfg=norm_net,
+    norm_cfg=norm_net,
 )
 
 seed = 0
@@ -90,6 +87,4 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
-extra_flip_flag = '-flip' if uda['color_mix']['extra_flip'] else ''
-
-name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}"

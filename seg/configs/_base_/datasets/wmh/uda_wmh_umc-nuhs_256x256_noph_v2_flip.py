@@ -17,16 +17,11 @@ source_train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations'),
     dict(type='Resize', img_scale=img_scale),
-    # dict(type='ContrastFlip', data_aug_ratio=1.0),  
-    # dict(type='CLAHE'),
+    dict(type='ContrastFlip', data_aug_ratio=1.0, shift=0.54947, scale=0.0055),
     dict(type='ElasticTransformation', data_aug_ratio=0.25),  
     dict(type='StructuralAug', data_aug_ratio=0.25),
-    # dict(type='MedPhotoMetricDistortion', data_aug_ratio=0.25),
-    # dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.0),
-    dict(type='PhotoMetricDistortion'),  # is applied later in dacs.py
     dict(type='Normalize', **img_norm_cfg),
-    # dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=0),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
@@ -34,11 +29,9 @@ target_train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations'),
     dict(type='Resize', img_scale=img_scale),
-    # dict(type='StructuralAug', data_aug_ratio=0.25),
-    # dict(type='RandomCrop', crop_size=crop_size),
+    dict(type='ElasticTransformation', data_aug_ratio=0.25),
+    dict(type='StructuralAug', data_aug_ratio=0.25),
     dict(type='RandomFlip', prob=0.0),
-    # dict(type='MedPhotoMetricDistortion', data_aug_ratio=0.25),
-    # dict(type='PhotoMetricDistortion'),  # is applied later in dacs.py
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=0),
     dict(type='DefaultFormatBundle'),
@@ -49,9 +42,6 @@ test_pipeline = [
     dict(
         type='MultiScaleFlipAug',
         img_scale=(256, 256),
-        # MultiScaleFlipAug is disabled by not providing img_ratios and
-        # setting flip=False
-        # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -68,25 +58,25 @@ data = dict(
         type='UDADataset',
         source=dict(
             type='WMHDataset',
-            data_root=f'{data_root}/nuhs/',
+            data_root=f'{data_root}/umc/',
             img_dir='images/train',
             ann_dir='labels/train',
             pipeline=source_train_pipeline),
         target=dict(
             type='WMHDataset',
-            data_root=f'{data_root}/umc/',
+            data_root=f'{data_root}/nuhs/',
             img_dir='images/train',
             ann_dir='labels/train',
             pipeline=target_train_pipeline)),
     val=dict(
         type='WMHDataset',
-        data_root=f'{data_root}/umc/',
+        data_root=f'{data_root}/nuhs/',
         img_dir='images/test',
         ann_dir='labels/test',
         pipeline=test_pipeline),
     test=dict(
         type='WMHDataset',
-        data_root=f'{data_root}/umc/',
+        data_root=f'{data_root}/nuhs/',
         img_dir='images/test',
         ann_dir='labels/test',
         pipeline=test_pipeline))

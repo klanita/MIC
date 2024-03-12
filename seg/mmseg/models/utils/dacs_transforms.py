@@ -8,26 +8,217 @@ import torch
 import torch.nn as nn
 from torch import nn, optim
 import cv2
+from sklearn.linear_model import LinearRegression
+from mmseg.models.utils.dacs_normalization import NormNet
+
+def cosine_annealing(
+    step: int, total_steps: int, lr_max: float, lr_min: float, warmup_steps: int = 0
+) -> float:
+    assert warmup_steps >= 0
+
+    if step < warmup_steps:
+        lr = lr_max * step / warmup_steps
+    else:
+        lr = lr_min + (lr_max - lr_min) * 0.5 * (
+            1 + np.cos((step - warmup_steps) / (total_steps - warmup_steps) * np.pi)
+        )
+
+    return lr
 
 
 class ClasswiseMultAugmenter:
     def __init__(
         self,
         n_classes,
+        coef,
+        bias,
         suppress_bg: bool = True,
         auto_bcg: bool = False,
         device: str = "cuda:0",
-        kernel_size: int = 3
+        kernel_size: int = 3,
+        total_steps: int = 10000,
+        warm_up_iters: int = 1000,
+        extra_flip: bool = False
     ):
         self.n_classes = n_classes
         self.device = device
         self.source_mean = -torch.ones(n_classes, 1)
         self.target_mean = -torch.ones(n_classes, 1)
+        self.target_min = -torch.ones(n_classes, 1)
         self.coef = torch.zeros(n_classes, 3)
+        self.extra_flip = extra_flip
 
         self.suppress_bg = suppress_bg
         self.auto_bcg = auto_bcg
         self.kernel_size = (kernel_size, kernel_size)
+
+        self.learning_rate = 0.0001
+        self.normalization_net = NormNet(
+            coef, bias, norm_activation="linear", layers=[1, 1]
+        ).to(device)
+        # nn.Conv2d(1, 1, kernel_size=1, bias=True).to(device)
+        self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(
+            self.normalization_net.parameters(), lr=self.learning_rate, weight_decay=0
+        )
+
+        # num_warmup_steps = 1000  # Number of warmup steps
+        # num_total_steps = 10000  # Total number of training steps
+
+        # # Lambda function for linear warmup
+        # lambda1 = lambda step: float(step) / float(max(1, num_warmup_steps))
+        # # Lambda function for constant learning rate after warmup
+        # lambda2 = lambda step: 1.0 if step >= num_warmup_steps else 1e-6
+
+        # # Combine both lambda functions
+        # lambda_lr = lambda step: lambda1(step) + lambda2(step) * (
+        #     self.learning_rate - lambda1(step)
+        # )
+
+        # Initialize the scheduler
+        # self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda_lr)
+        
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.optimizer,
+            lr_lambda=lambda step: cosine_annealing(
+                step,
+                total_steps,
+                1,  # since lr_lambda computes multiplicative factor
+                1e-6 / self.learning_rate,
+                warmup_steps=warm_up_iters,
+            ),
+        )
+        
+        # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        #     self.optimizer,
+        #     num_total_steps,
+        #     eta_min=self.learning_rate / 100,
+        #     last_epoch=-1,
+        #     verbose="deprecated",
+        # )
+
+        self.local_iter = 1
+
+    def _linear_match_cost(self, source, template, mask, N=500):
+        source_vec = source.reshape(-1)
+        template_vec = template.reshape(-1)
+        mask_vec = mask.reshape(-1)
+
+        selected_src = self.source_mean[1:, 0]
+        selected_tmpl = self.target_mean[1:, 0]
+
+        print(selected_src)
+        print(selected_tmpl)
+
+        idx = np.where(selected_tmpl != -1)[0]
+        print(len(idx), selected_tmpl.shape[0])
+        selected_src = selected_src[idx]
+        selected_tmpl = selected_tmpl[idx]
+
+        # selected_src = []
+        # selected_tmpl = []
+        # for cl in range(1, self.n_classes):
+        #     idx_class = np.where(mask_vec == cl)[0]
+        #     print(cl, len(idx_class))
+        #     if len(idx_class) > N:
+        #         idx_class = np.random.choice(idx_class, size=N, replace=False)
+
+        #     if len(idx_class):
+        #         selected_src.append(source_vec[idx_class])
+        #         selected_tmpl.append(template_vec[idx_class])
+        # # selected_src = np.array(selected_src)
+        # # selected_tmpl = np.array(selected_tmpl)
+        # selected_src = np.concatenate(selected_src)
+        # selected_tmpl = np.concatenate(selected_tmpl)
+
+        print(selected_src)
+        print(selected_tmpl)
+        # reg = LinearRegression().fit(source_vec[mask_vec != 0].reshape(-1, 1), template_vec[mask_vec != 0])
+        reg = LinearRegression().fit(selected_src.reshape(-1, 1), selected_tmpl)
+        print(
+            f"Linear Regression: Coefficients={reg.coef_[0]:.4f} and Intercept={reg.intercept_:.4f}"
+        )
+
+        self.normalization_net.initialize_weights(reg.coef_[0], reg.intercept_)
+
+        for name, param in self.normalization_net.named_parameters():
+            print(name, param.data.item())
+
+        self.init_weights = False
+
+    def _normalize(self, img_original, background_mask):
+        img_original_gray = img_original[:, 0, :, :].unsqueeze(1)
+
+        with torch.no_grad():
+            img = self.normalization_net(img_original_gray).detach()
+
+        if self.suppress_bg:
+            img[background_mask] = img_original_gray[background_mask]
+
+        img = img.repeat(1, 3, 1, 1)
+
+        return img
+    
+    def optimization_step(
+        self, optimizer_step, img_original, img_segm_hist, gt_semantic_seg, means, stds, auto_bcg=None
+    ):
+        denorm_(img_original, means, stds)
+        denorm_(img_segm_hist, means, stds)
+
+        img_segm_hist_gray = img_segm_hist[:, 0, :, :].clone().unsqueeze(1)
+        img_original_gray = img_original[:, 0, :, :].unsqueeze(1)
+
+        if auto_bcg is None:
+            foreground_mask = gt_semantic_seg > 0
+            background_mask = gt_semantic_seg == 0
+        else:
+            foreground_mask = auto_bcg > 0
+            background_mask = auto_bcg == 0
+
+        if optimizer_step:
+            self.optimizer.zero_grad()
+
+            img_polished = self.normalization_net(img_original_gray)
+
+            if self.suppress_bg:
+
+                loss = self.criterion(
+                    img_polished[foreground_mask],
+                    img_segm_hist_gray[foreground_mask].to(img_polished.device),
+                )
+            else:
+                loss = self.criterion(
+                    img_polished, img_segm_hist_gray.to(img_polished.device)
+                )
+
+            loss.backward()
+            self.optimizer.step()
+            self.scheduler.step()
+
+            loss_val = loss.item()
+
+            min_tgt = img_segm_hist_gray[foreground_mask].min().item()
+
+            del img_polished
+        
+        else:
+            loss_val = np.nan
+
+        with torch.no_grad():
+            img = self.normalization_net(img_original_gray).detach()
+
+        if self.suppress_bg:
+            img[background_mask] = img_segm_hist_gray[background_mask]
+            
+            # img[background_mask] = img_original[:, 0, :, :].unsqueeze(1)[background_mask].mean().item()
+
+        img = img.repeat(1, 3, 1, 1)
+
+        renorm_(img_original, means, stds)
+        renorm_(img_segm_hist, means, stds)
+        renorm_(img, means, stds)
+
+        return img, loss_val
 
     def update(self, source, target, mask_src, mask_tgt, weight_tgt, param):
         mean, std = param["mean"], param["std"]
@@ -44,11 +235,18 @@ class ClasswiseMultAugmenter:
             for i in range(target.shape[0]):
                 target_bcg.append(self.find_background(target[i]))
             target_bcg = torch.stack(target_bcg).to(self.device)
+        else:
+            source_bcg = mask_src == 0
+
+        if self.extra_flip:
+            source_ = self._normalize(source, source_bcg)
+        else:
+            source_ = source
 
         c = 0
         for i in range(self.n_classes):
             if self.auto_bcg:
-                source_mean = source[:, c, :, :][
+                source_mean = source_[:, c, :, :][
                     (mask_src.squeeze(1) == i) & (source_bcg != 0)
                 ]
                 target_mean = target[:, c, :, :][
@@ -57,7 +255,7 @@ class ClasswiseMultAugmenter:
                     & (weight_tgt.squeeze(1) > 0)
                 ]
             else:
-                source_mean = source[:, c, :, :][mask_src.squeeze(1) == i]
+                source_mean = source_[:, c, :, :][mask_src.squeeze(1) == i]
                 target_mean = target[:, c, :, :][
                     (mask_tgt.squeeze(1) == i) & (weight_tgt.squeeze(1) > 0)
                 ]
@@ -67,6 +265,7 @@ class ClasswiseMultAugmenter:
 
             if target_mean.shape[0] != 0:
                 self.target_mean[i, c] = target_mean.mean().item()
+                self.target_min[i, c] = target_mean.min().item()
 
             if (self.source_mean[i, c] != -1) and (self.target_mean[i, c] != -1):
                 self.coef[i, c] = self.target_mean[i, c] - self.source_mean[i, c]
@@ -82,10 +281,13 @@ class ClasswiseMultAugmenter:
         if self.auto_bcg:
             background_mask = []
             for i in range(data_.shape[0]):
-                background_mask.append(
-                    self.find_background(data_[i])
-                )
+                background_mask.append(self.find_background(data_[i]))
             background_mask = torch.stack(background_mask).to(self.device)
+        else:
+            background_mask = mask == 0
+
+        if self.extra_flip:
+            data_ = self._normalize(data_, background_mask)
 
         for i in range(self.n_classes):
             for c in range(3):
@@ -109,9 +311,9 @@ class ClasswiseMultAugmenter:
 
         renorm_(data_, mean, std)
         if self.auto_bcg:
-            return data_[:, 0, :, :].unsqueeze(1), background_mask.unsqueeze(1)
+            return data_, background_mask.unsqueeze(1)
         else:
-            return data_[:, 0, :, :].unsqueeze(1), None
+            return data_, None
 
     def find_background(self, img):
         img.clamp_(0, 1)
@@ -123,9 +325,7 @@ class ClasswiseMultAugmenter:
         )
 
         # Apply thresholding to find markers
-        _, thresh = cv2.threshold(
-            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-        )
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
         # Noise removal using morphological closing operation
         kernel = np.ones(self.kernel_size, np.uint8)

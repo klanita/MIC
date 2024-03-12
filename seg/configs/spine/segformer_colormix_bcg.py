@@ -6,7 +6,7 @@
 
 datatag = ""
 # datatag = "_euler"
-datatag = ""
+datatag = "_flip"
 dataset = "spine_ct-mri"
 # dataset = "spine_mri-ct"
 num_classes = 6
@@ -32,9 +32,9 @@ uda = dict(
         burnin_global=burnin_global,
         burnin=burnin,
         coloraug=True,
-        auto_bcg=False,
-        bias=0.40618, 
-        weight=-0.30236,
+        auto_bcg=True,
+        bias=-3.0529, 
+        weight=5.3476,
         extra_flip=False
     )
 )
@@ -65,7 +65,7 @@ data = dict(
 # Optimizer Hyperparameters
 optimizer_config = None
 optimizer = dict(
-    lr=6e-05,
+    lr=6e-04,
     paramwise_cfg=dict(
         custom_keys=dict(
             head=dict(lr_mult=10.0),
@@ -79,7 +79,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=250, metric="mDice")
+evaluation = dict(interval=1000, metric="mDice")
 # Meta Information for Result Analysis
 
 

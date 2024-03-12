@@ -35,7 +35,7 @@ uda = dict(
         auto_bcg=False,
         bias=0.40618, 
         weight=-0.30236,
-        extra_flip=False
+        extra_flip=True
     )
 )
 
@@ -90,6 +90,6 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
-extra_flip_flag = '-flip' if uda['color_mix']['extra_flip'] else ''
+extra_flip_flag = '-extra' if uda['color_mix']['extra_flip'] else ''
 
 name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"
