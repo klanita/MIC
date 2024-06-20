@@ -10,7 +10,7 @@
 dataset = "wmh_umc-nuhs"
 
 # datatag = "_noph"
-datatag = "_noph_v2"
+datatag = "_noph_v2_euler"
 num_classes = 2
 
 # datatag = "_noph_bcg"
@@ -31,7 +31,6 @@ _base_ = [
 ]
 
 burnin_global = 0
-# burnin = 500
 burnin = 0
 uda = dict(
     color_mix=dict(
@@ -41,13 +40,15 @@ uda = dict(
         auto_bcg=False,
         bias=0.54947, 
         weight=0.0055,
-        extra_flip=False
+        extra_flip=False,
+        freq=1.0
     )
 )
 
 # norm_net = dict(norm_activation="linear", layers=[1, 1])
 
 model = dict(
+    # pretrained='pretrained/backbone.pth',
     decode_head=dict(num_classes=num_classes),
     # norm_cfg=norm_net,
 )
@@ -62,7 +63,7 @@ data = dict(
     train=dict(
         # Rare Class Sampling
         rare_class_sampling=dict(
-            min_pixels=16, class_temp=class_temp, min_crop_ratio=0.5, per_image=per_image
+            min_pixels=4, class_temp=class_temp, min_crop_ratio=0.5, per_image=per_image
         )
     ),
 )
@@ -84,7 +85,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)
-evaluation = dict(interval=500, metric="mDice")
+evaluation = dict(interval=250, metric="mDice")
 # Meta Information for Result Analysis
 
 exp = "basic"
@@ -94,5 +95,5 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_10k"
-extra_flip_flag = '-flip' if uda['color_mix']['extra_flip'] else ''
+extra_flip_flag = '-extra' if uda['color_mix']['extra_flip'] else ''
 name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"

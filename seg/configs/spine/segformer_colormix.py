@@ -4,11 +4,9 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-datatag = ""
-# datatag = "_euler"
-datatag = ""
+datatag = "_euler"
+# datatag = ""
 dataset = "spine_ct-mri"
-# dataset = "spine_mri-ct"
 num_classes = 6
 
 _base_ = [
@@ -27,15 +25,25 @@ _base_ = [
 
 burnin_global = 0
 burnin = 0
+# auto-bcg
+# weight=5.3476
+# bias=-3.0529
+#  default
+# bias=0.40618
+# weight=-0.30236
+bias=0.23
+weight=0.21
 uda = dict(
+    # mix=None,
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
         coloraug=True,
         auto_bcg=False,
-        bias=0.40618, 
-        weight=-0.30236,
-        extra_flip=False
+        bias=bias, 
+        weight=weight,
+        extra_flip=False,
+        freq=1.0
     )
 )
 
@@ -65,7 +73,7 @@ data = dict(
 # Optimizer Hyperparameters
 optimizer_config = None
 optimizer = dict(
-    lr=6e-05,
+    lr=6e-04,
     paramwise_cfg=dict(
         custom_keys=dict(
             head=dict(lr_mult=10.0),

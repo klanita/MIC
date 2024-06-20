@@ -4,11 +4,9 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-datatag = ""
-# datatag = "_euler"
-datatag = ""
+# datatag = ""
+datatag = "_euler"
 dataset = "spine_ct-mri"
-# dataset = "spine_mri-ct"
 num_classes = 6
 
 _base_ = [
@@ -28,6 +26,7 @@ _base_ = [
 burnin_global = 0
 burnin = 500
 uda = dict(
+    # mix=None,
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,

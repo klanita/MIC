@@ -81,7 +81,7 @@ class NormNet(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, bias)
             elif isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.weight, coef)
                 nn.init.constant_(m.bias, 0)
 
     # def initialize_weights(self) -> None:

@@ -351,9 +351,7 @@ class DACS(UDADecorator):
 
     def intensity_normalization(self, img_original, gt_semantic_seg, means, stds):
         # estimate tgt intensities using GT segmenation masks
-        if np.random.rand() > self.color_mix["freq"]:
-            return img_original
-        
+                
         img_segm_hist, auto_bcg = self.contrast_flip.color_mix(
             img_original, gt_semantic_seg, means, stds
         )
@@ -404,6 +402,10 @@ class DACS(UDADecorator):
                     )
                 }
             )
+
+        for i in range(img.shape[0]):
+            if np.random.rand() > self.color_mix["freq"]:
+                img[i] = img_original[i]
 
         if self.color_mix["coloraug"]:
             img = color_jitter_med(

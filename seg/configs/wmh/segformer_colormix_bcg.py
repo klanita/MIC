@@ -10,7 +10,7 @@
 dataset = "wmh_umc-nuhs"
 
 # datatag = "_noph"
-datatag = "_noph_v2"
+datatag = "_noph_v2_euler"
 num_classes = 2
 
 # datatag = "_noph_bcg"
@@ -31,7 +31,7 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 500
+burnin = 0
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
@@ -40,7 +40,7 @@ uda = dict(
         auto_bcg=True,
         weight=1.9985,
         bias=0.0284,
-        extra_flip=True
+        extra_flip=False
     )
 )
 
@@ -61,7 +61,7 @@ data = dict(
     train=dict(
         # Rare Class Sampling
         rare_class_sampling=dict(
-            min_pixels=16, class_temp=class_temp, min_crop_ratio=0.5, per_image=per_image
+            min_pixels=4, class_temp=class_temp, min_crop_ratio=0.5, per_image=per_image
         )
     ),
 )

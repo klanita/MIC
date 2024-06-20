@@ -4,13 +4,10 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-datatag = ""
 datatag = "_euler"
-# datatag = "_flip"
+# datatag = ""
 dataset = "spine_ct-mri"
-# dataset = "spine_mri-ct"
 num_classes = 6
-s
 
 _base_ = [
     "../_base_/default_runtime.py",
@@ -28,15 +25,27 @@ _base_ = [
 
 burnin_global = 0
 burnin = 0
+# auto-bcg
+# weight=5.3476
+# bias=-3.0529
+#  default
+# bias=0.40618
+# weight=-0.30236
+weight=-0.3677
+bias=0.4654
+# bias=0.23
+# weight=0.21
 uda = dict(
+    # mix=None,
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
         coloraug=True,
-        auto_bcg=True,
-        bias=-3.0529, 
-        weight=5.3476,
-        extra_flip=False
+        auto_bcg=False,
+        bias=bias, 
+        weight=weight,
+        extra_flip=False,
+        freq=1.0
     )
 )
 
@@ -80,7 +89,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=1000, metric="mDice")
+evaluation = dict(interval=250, metric="mDice")
 # Meta Information for Result Analysis
 
 

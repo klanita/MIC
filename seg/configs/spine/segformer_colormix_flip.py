@@ -4,11 +4,9 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-datatag = ""
-# datatag = "_euler"
-datatag = "_flip"
+# datatag = "_flip"
+datatag = "_flip_euler"
 dataset = "spine_ct-mri"
-# dataset = "spine_mri-ct"
 num_classes = 6
 
 _base_ = [
@@ -26,22 +24,23 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 500
+burnin = 0
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
         burnin=burnin,
         coloraug=True,
         auto_bcg=False,
+        extra_flip=False
     )
 )
 
-norm_net = dict(norm_activation="linear", layers=[1, 1])
+# norm_net = dict(norm_activation="linear", layers=[1, 1])
 # norm_net = dict(norm_activation="relu", layers=[1, 32, 1])
 
 model = dict(
     decode_head=dict(num_classes=num_classes),
-    norm_cfg=norm_net,
+    # norm_cfg=norm_net,
 )
 
 seed = 0
@@ -87,4 +86,6 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
-name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}"
+extra_flip_flag = '-extra' if uda['color_mix']['extra_flip'] else ''
+
+name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"

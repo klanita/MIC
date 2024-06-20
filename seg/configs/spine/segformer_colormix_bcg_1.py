@@ -4,13 +4,12 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-datatag = ""
+# datatag = ""
 datatag = "_euler"
 # datatag = "_flip"
 dataset = "spine_ct-mri"
 # dataset = "spine_mri-ct"
 num_classes = 6
-s
 
 _base_ = [
     "../_base_/default_runtime.py",
@@ -34,8 +33,8 @@ uda = dict(
         burnin=burnin,
         coloraug=True,
         auto_bcg=True,
-        bias=-3.0529, 
-        weight=5.3476,
+        weight=-3.084,
+        bias=2.746,
         extra_flip=False
     )
 )

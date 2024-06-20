@@ -10,7 +10,7 @@
 dataset = "wmh_umc-nuhs"
 
 # datatag = "_noph"
-datatag = "_noph_v2_flip"
+datatag = "_noph_v2_flip_euler"
 num_classes = 2
 
 # datatag = "_noph_bcg"
@@ -31,7 +31,7 @@ _base_ = [
 ]
 
 burnin_global = 0
-burnin = 500
+burnin = 0
 uda = dict(
     color_mix=dict(
         burnin_global=burnin_global,
@@ -59,7 +59,7 @@ data = dict(
     train=dict(
         # Rare Class Sampling
         rare_class_sampling=dict(
-            min_pixels=16, class_temp=class_temp, min_crop_ratio=0.5, per_image=per_image
+            min_pixels=4, class_temp=class_temp, min_crop_ratio=0.5, per_image=per_image
         )
     ),
 )
@@ -81,7 +81,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=1000, max_keep_ckpts=1)
-evaluation = dict(interval=500, metric="mDice")
+evaluation = dict(interval=250, metric="mDice")
 # Meta Information for Result Analysis
 
 exp = "basic"

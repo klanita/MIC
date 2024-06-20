@@ -4,13 +4,10 @@
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
-datatag = ""
-datatag = "_euler"
 # datatag = "_flip"
+datatag = "_flip_euler_1"
 dataset = "spine_ct-mri"
-# dataset = "spine_mri-ct"
 num_classes = 6
-s
 
 _base_ = [
     "../_base_/default_runtime.py",
@@ -33,9 +30,7 @@ uda = dict(
         burnin_global=burnin_global,
         burnin=burnin,
         coloraug=True,
-        auto_bcg=True,
-        bias=-3.0529, 
-        weight=5.3476,
+        auto_bcg=False,
         extra_flip=False
     )
 )
@@ -66,7 +61,7 @@ data = dict(
 # Optimizer Hyperparameters
 optimizer_config = None
 optimizer = dict(
-    lr=6e-04,
+    lr=6e-05,
     paramwise_cfg=dict(
         custom_keys=dict(
             head=dict(lr_mult=10.0),
@@ -80,7 +75,7 @@ n_gpus = 1
 runner = dict(type="IterBasedRunner", max_iters=10000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=1000, metric="mDice")
+evaluation = dict(interval=250, metric="mDice")
 # Meta Information for Result Analysis
 
 
@@ -91,6 +86,6 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_30k"
-extra_flip_flag = '-flip' if uda['color_mix']['extra_flip'] else ''
+extra_flip_flag = '-extra' if uda['color_mix']['extra_flip'] else ''
 
 name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"

@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------
 
 datatag = ""
-datatag = "_v2"
+datatag = "_v2_euler"
 dataset = 'brain_hcp1-hcp2'
 num_classes=15
 
@@ -34,7 +34,8 @@ uda = dict(
         auto_bcg=False,
         bias=1.09021,
         weight=-0.78673,
-        extra_flip=True
+        extra_flip=False,
+        freq=1.0
     ),
     debug_img_interval=5
 )
@@ -90,5 +91,5 @@ name_encoder = "ResNetV1c"
 name_decoder = "SegFormerHead"
 name_uda = "dacs"
 name_opt = "adamw_6e-05_pmTrue_poly10warm_1x2_10k"
-extra_flip_flag = '-flip' if uda['color_mix']['extra_flip'] else ''
+extra_flip_flag = '-extra' if uda['color_mix']['extra_flip'] else ''
 name = f"{dataset}{datatag}_{name_architecture}-burnin{burnin}-g{burnin_global}{extra_flip_flag}"

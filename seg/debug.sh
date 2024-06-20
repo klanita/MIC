@@ -3,6 +3,17 @@
 # srun --time 480 --account=staff --partition=gpu.debug --mem=50G --gres=gpu:1 --pty bash -i 
 # srun --time 480 --partition=gpu.debug --gres=gpu:1 --mem=80G --pty bash -i
 
+#SBATCH  --output=./LOGS/%j.out
+#SBATCH  --error=./LOGS/%j.out
+#SBATCH  --gpus=1
+#SBATCH  --mem-per-cpu=5G
+##SBATCH  --mem-per-cpu=10G
+#SBATCH  --ntasks=1
+#SBATCH  --cpus-per-task=2
+#SBATCH  --time=1-0
+
+# srun --time=1-0 --gpus=1 --mem-per-cpu=5G --pty bash -i
+
 # source /itet-stor/klanna/net_scratch/conda/etc/profile.d/conda.sh
 # conda activate mic
 
