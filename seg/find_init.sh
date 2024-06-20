@@ -3,8 +3,8 @@
 #SBATCH  --output=./LOGS_init/%j.out
 #SBATCH  --error=./LOGS_init/%j.out
 #SBATCH  --gres=gpu:1
-#SBATCH  --mem=80G
-##SBATCH --account=bmic
+#SBATCH  --mem=40G
+##SBATCH --account=staff
 ##SBATCH --time=300
 
 WORKPATH=/usr/bmicnas02/data-biwi-01/klanna_data/results/MIC/

@@ -52,7 +52,7 @@ from mmseg.models.utils.wandb_log_images import WandbLogImages
 from torch import nn
 import wandb
 
-from mmseg.models.utils.fda import FDA_source_to_target
+# from mmseg.models.utils.fda import FDA_source_to_target
 
 
 def _params_equal(ema_model, model):
@@ -420,48 +420,48 @@ class DACS(UDADecorator):
 
         return img
 
-    def fda_normalization(self, img_original, target_img, means, stds):
-        # estimate tgt intensities using GT segmenation masks
+    # def fda_normalization(self, img_original, target_img, means, stds):
+    #     # estimate tgt intensities using GT segmenation masks
 
-        img = FDA_source_to_target(img_original, target_img, L=self.color_mix["L"])
+    #     img = FDA_source_to_target(img_original, target_img, L=self.color_mix["L"])
 
-        if self.local_iter % 200 == 0:
+    #     if self.local_iter % 200 == 0:
 
-            vis_img = (
-                torch.clamp(denorm(img_original, means, stds), 0, 1)
-                .cpu()
-                .permute(0, 2, 3, 1)[0]
-                .numpy()
-            )
-            vis_mixed_img = (
-                torch.clamp(denorm(img, means, stds), 0, 1)
-                .cpu()
-                .permute(0, 2, 3, 1)[0]
-                .numpy()
-            )
+    #         vis_img = (
+    #             torch.clamp(denorm(img_original, means, stds), 0, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
+    #         vis_mixed_img = (
+    #             torch.clamp(denorm(img, means, stds), 0, 1)
+    #             .cpu()
+    #             .permute(0, 2, 3, 1)[0]
+    #             .numpy()
+    #         )
 
-            wandb.log(
-                {
-                    "Augmentation": wandb.Image(
-                        np.concatenate([vis_img, vis_mixed_img], axis=1)
-                    )
-                }
-            )
+    #         wandb.log(
+    #             {
+    #                 "Augmentation": wandb.Image(
+    #                     np.concatenate([vis_img, vis_mixed_img], axis=1)
+    #                 )
+    #             }
+    #         )
 
-        if self.color_mix["coloraug"]:
-            img = color_jitter_med(
-                color_jitter=random.uniform(0, 1),
-                s=self.color_mix["color_jitter_s"],
-                p=self.color_mix["color_jitter_p"],
-                mean=means,
-                std=stds,
-                data=img.clone(),
-            )[0]
+    #     if self.color_mix["coloraug"]:
+    #         img = color_jitter_med(
+    #             color_jitter=random.uniform(0, 1),
+    #             s=self.color_mix["color_jitter_s"],
+    #             p=self.color_mix["color_jitter_p"],
+    #             mean=means,
+    #             std=stds,
+    #             data=img.clone(),
+    #         )[0]
 
-        if self.color_mix["gaussian_blur"]:
-            img = gaussian_blur(blur=random.uniform(0, 1), data=img.clone())[0]
+    #     if self.color_mix["gaussian_blur"]:
+    #         img = gaussian_blur(blur=random.uniform(0, 1), data=img.clone())[0]
 
-        return img
+    #     return img
 
     def forward_train(
         self,

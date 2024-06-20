@@ -23,7 +23,7 @@ WORKPATH=/usr/bmicnas02/data-biwi-01/klanna_data/results/MIC/
 
 # python run_experiments.py --config configs/whitematter/daformer_mic.py
 
-# python run_experiments.py --config configs/whitematter/segformer.py
+python run_experiments.py --config configs/wmh/segformer.py
 
 
 # python run_experiments.py --config configs/brain/daformer_mic_colormix_source.py

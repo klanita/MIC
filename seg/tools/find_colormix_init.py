@@ -21,10 +21,10 @@ def get_options():
     parser.add_argument(
         "--experiment", type=str, help="Threshold value.", default="hcp"
     )
-    parser.add_argument("--n_epochs", type=int, help="Threshold value.", default=1)
-    parser.add_argument("--batch_size", type=int, help="Threshold value.", default=2048)
+    parser.add_argument("--n_epochs", type=int, help="n_epochs .", default=50)
+    parser.add_argument("--batch_size", type=int, help="batch_size.", default=8192)
     parser.add_argument(
-        "--learning_rate", type=float, help="Threshold value.", default=1e-3
+        "--learning_rate", type=float, help="learning_rate.", default=1e-3
     )
     parser.add_argument(
         "--auto_bcg",
@@ -36,6 +36,8 @@ def get_options():
         "--work_dir", type=str, help="Workdir for weights and biases.", 
         default="/usr/bmicnas02/data-biwi-01/klanna_data/results/MIC/"
     )
+
+    parser.add_argument("--seed", type=int, help="Seed for reproducibility.", default=0)
 
     # Parse the arguments
     args = parser.parse_args()
@@ -49,7 +51,7 @@ class RBF(nn.Module):
         super().__init__()
         self.bandwidth_multipliers = mul_factor ** (
             torch.arange(n_kernels) - n_kernels // 2
-        )
+        ).to(device="cuda")
         self.bandwidth = bandwidth
 
     def get_bandwidth(self, L2_distances):
@@ -252,7 +254,7 @@ def train():
         tag = '-auto_bcg'
     else:
         tag = ''
-    wandb_taks_name = f"{dataset_src}-{dataset_tgt}-{tag}"
+    wandb_taks_name = f"{dataset_src}-{dataset_tgt}-{tag}-seed{args.seed}"
     print(wandb_taks_name)
     wandb.init(project="MIC-init", 
                config=args, 
@@ -260,7 +262,7 @@ def train():
                name=wandb_taks_name)
 
     # Set random seed for reproducibility
-    torch.manual_seed(0)
+    torch.manual_seed(abs(args.seed))
 
     criterion = MMDLoss()
 
@@ -271,7 +273,12 @@ def train():
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # Initialize the model
-    normalization_net = nn.Linear(1, 1)
+    normalization_net = nn.Linear(1, 1).to(device="cuda")
+    if args.seed < 0:
+        for m in normalization_net.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.constant_(m.weight, -1)
+                nn.init.constant_(m.bias, 1)
 
     # Initialize the optimizer
     optimizer = optim.Adam(normalization_net.parameters(), lr=learning_rate)
@@ -282,6 +289,8 @@ def train():
     local_iter = 0
     for epoch in range(n_epochs):
         for batch_src, batch_tgt in dataloader:
+            batch_src = batch_src.to(device="cuda")
+            batch_tgt = batch_tgt.to(device="cuda")
             # Zero the gradients
             optimizer.zero_grad()
 

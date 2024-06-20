@@ -669,6 +669,7 @@ class ResNet(BaseModule):
             x = res_layer(x)
             if i in self.out_indices:
                 outs.append(x)
+
         return tuple(outs)
 
     def train(self, mode=True):
